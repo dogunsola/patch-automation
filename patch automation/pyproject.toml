@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rapid7-automox-sync"
+version = "0.1.0"
+description = "Export critical and severe InsightVM findings to Automox Vulnerability Sync."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+rapid7-automox-sync = "rapid7_automox_sync.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
