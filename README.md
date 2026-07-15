@@ -21,7 +21,6 @@ python3 -m venv .venv
 source .venv/bin/activate
 cd "patch automation"
 python -m pip install -e ".[dev]"
-cp .env.example .env
 ```
 
 Export the values from `.env` into your shell or secret-management system.
@@ -32,6 +31,24 @@ set -a
 source .env
 set +a
 ```
+
+## CI Setup
+
+For automated runs, this project uses Azure Key Vault for secret retrieval.
+Install the Azure SDK extras so the Key Vault integration is available:
+
+```bash
+cd "patch automation"
+python -m pip install -e ".[dev,azure]"
+```
+
+Authenticate with Azure before running locally or in a pipeline:
+
+```bash
+az login
+```
+
+For Azure DevOps, configure a service connection and provide the required pipeline variables for the Key Vault URL and secret names.
 
 ## Run
 
