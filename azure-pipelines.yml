@@ -1,0 +1,70 @@
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 6 * * *"
+    displayName: Daily Rapid7 to Automox sync
+    branches:
+      include:
+        - main
+    always: true
+
+variables:
+  - group: rapid7-automox-secrets
+  - name: PYTHON_VERSION
+    value: "3.10"
+
+pool:
+  vmImage: ubuntu-latest
+
+jobs:
+  - job: sync
+    displayName: Run Rapid7 to Automox sync
+    steps:
+      - checkout: self
+
+      - task: UsePythonVersion@0
+        displayName: Use Python $(PYTHON_VERSION)
+        inputs:
+          versionSpec: "$(PYTHON_VERSION)"
+
+      - script: |
+          cd "patch automation"
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,azure]"
+        displayName: Install dependencies
+
+      - script: |
+          cd "patch automation"
+          python -m pytest
+        displayName: Run tests
+
+      - task: AzureCLI@2
+        displayName: Sign in to Azure
+        inputs:
+          azureSubscription: $(AZURE_SUBSCRIPTION)
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            az account show --output none
+
+      - script: |
+          set -euo pipefail
+          cd "patch automation"
+
+          rapid7-automox-sync \
+            --secret-source azure-keyvault \
+            --azure-key-vault-url "$(AZURE_KEY_VAULT_URL)" \
+            --rapid7-api-key-secret "$(RAPID7_API_KEY_SECRET_NAME)" \
+            --automox-api-key-secret "$(AUTOMOX_API_KEY_SECRET_NAME)" \
+            --automox-org-id-secret "$(AUTOMOX_ORG_ID_SECRET_NAME)" \
+            --output "$(Build.ArtifactStagingDirectory)/rapid7-findings.csv" \
+            --verbose
+        displayName: Run sync job
+
+      - task: PublishPipelineArtifact@1
+        displayName: Publish CSV output
+        inputs:
+          targetPath: "$(Build.ArtifactStagingDirectory)/rapid7-findings.csv"
+          artifact: "rapid7-findings"
+        condition: succeededOrFailed()
