@@ -19,7 +19,8 @@ for auditability. Uploading to Automox is opt-in.
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e .
+cd "patch automation"
+python -m pip install -e ".[dev]"
 cp .env.example .env
 ```
 
@@ -44,6 +45,66 @@ Create and upload the CSV:
 
 ```bash
 rapid7-automox-sync --output rapid7-findings.csv --upload
+```
+
+## Secrets
+
+By default, secrets are read from environment variables:
+
+```bash
+export RAPID7_API_KEY="..."
+export AUTOMOX_API_KEY="..."
+export AUTOMOX_ORG_ID="123456"
+```
+
+You can also read them from Azure Key Vault. Install the optional Azure support:
+
+```bash
+python -m pip install -e ".[azure]"
+```
+
+Create Key Vault secrets, for example:
+
+```text
+rapid7-api-key
+automox-api-key
+automox-org-id
+```
+
+Then run with Azure Key Vault:
+
+```bash
+rapid7-automox-sync \
+  --secret-source azure-keyvault \
+  --azure-key-vault-url https://your-vault-name.vault.azure.net/ \
+  --output rapid7-findings.csv
+```
+
+For upload:
+
+```bash
+rapid7-automox-sync \
+  --secret-source azure-keyvault \
+  --azure-key-vault-url https://your-vault-name.vault.azure.net/ \
+  --output rapid7-findings.csv \
+  --upload
+```
+
+Authentication uses Azure `DefaultAzureCredential`, so it works with managed
+identity in Azure, workload identity, service principal environment variables,
+or local Azure CLI login. Grant the identity only `get` access to the required
+Key Vault secrets.
+
+If your secret names differ, pass explicit names:
+
+```bash
+rapid7-automox-sync \
+  --secret-source azure-keyvault \
+  --azure-key-vault-url https://your-vault-name.vault.azure.net/ \
+  --rapid7-api-key-secret prod-rapid7-api-key \
+  --automox-api-key-secret prod-automox-api-key \
+  --automox-org-id-secret prod-automox-org-id \
+  --upload
 ```
 
 Useful options:
@@ -82,11 +143,15 @@ The implementation still includes controls for the applicable risks:
 - TLS certificate validation is performed by Python's default trust store with
   TLS 1.2 or newer.
 - API keys are read from environment variables and are not logged.
+- API keys can also be retrieved from Azure Key Vault at runtime and are not
+  written to disk by the application.
 - Generated CSV files are written with `0600` permissions.
 - CSV cells are escaped to reduce spreadsheet formula-injection risk.
 - Multipart upload filenames are sanitized.
 - Uploading to Automox is opt-in with `--upload`.
-- The project has no third-party runtime dependencies.
+- The default environment-variable mode has no third-party runtime dependencies;
+  Azure Key Vault mode uses the official Azure SDK packages listed in
+  `patch automation/pyproject.toml`.
 
 Treat the generated CSV as sensitive because it contains vulnerability and asset
 data. Store it only in protected locations and remove old exports according to
@@ -95,5 +160,6 @@ your retention policy.
 ## Test
 
 ```bash
-python -m unittest discover -s tests -v
+cd "patch automation"
+python -m pytest
 ```
