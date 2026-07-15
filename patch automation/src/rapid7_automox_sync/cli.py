@@ -6,23 +6,27 @@ from pathlib import Path
 
 from .automox import AutomoxClient
 from .rapid7 import Rapid7Client, VALID_REGIONS
+from .secrets import AzureKeyVaultSecretProvider, EnvSecretProvider, default_secret_name
 from .transform import build_catalog, transform_assets, write_automox_csv
 
 LOG = logging.getLogger(__name__)
 
 
-def required_env(name: str) -> str:
-    value = os.environ.get(name, "").strip()
-    if not value:
-        raise SystemExit(f"Missing required environment variable: {name}")
-    return value
-
-
 def positive_int(value: str) -> int:
-    parsed = int(value)
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("must be a positive integer") from exc
     if parsed <= 0:
         raise argparse.ArgumentTypeError("must be a positive integer")
     return parsed
+
+
+def required_positive_int(value: str, label: str) -> int:
+    try:
+        return positive_int(value)
+    except argparse.ArgumentTypeError as exc:
+        raise SystemExit(f"{label} must be a positive integer") from exc
 
 
 def safe_output_path(path: Path) -> Path:
@@ -59,8 +63,44 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Upload the generated CSV to Automox Vulnerability Sync",
     )
+    parser.add_argument(
+        "--secret-source",
+        choices=("env", "azure-keyvault"),
+        default=os.environ.get("SECRET_SOURCE", "env"),
+        help="Secret source for API keys (default: SECRET_SOURCE or env)",
+    )
+    parser.add_argument(
+        "--azure-key-vault-url",
+        default=os.environ.get("AZURE_KEY_VAULT_URL", ""),
+        help="Azure Key Vault URL when --secret-source azure-keyvault is used",
+    )
+    parser.add_argument(
+        "--rapid7-api-key-secret",
+        default=None,
+        help="Secret name for the Rapid7 API key",
+    )
+    parser.add_argument(
+        "--automox-api-key-secret",
+        default=None,
+        help="Secret name for the Automox API key",
+    )
+    parser.add_argument(
+        "--automox-org-id-secret",
+        default=None,
+        help="Secret name for the Automox organization ID",
+    )
     parser.add_argument("--verbose", action="store_true")
     return parser.parse_args()
+
+
+def build_secret_provider(args: argparse.Namespace) -> EnvSecretProvider | AzureKeyVaultSecretProvider:
+    if args.secret_source == "env":
+        return EnvSecretProvider()
+    if not args.azure_key_vault_url:
+        raise SystemExit(
+            "--azure-key-vault-url or AZURE_KEY_VAULT_URL is required for Azure Key Vault"
+        )
+    return AzureKeyVaultSecretProvider(args.azure_key_vault_url)
 
 
 def main() -> None:
@@ -69,9 +109,19 @@ def main() -> None:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    secrets = build_secret_provider(args)
+    rapid7_api_key_secret = args.rapid7_api_key_secret or default_secret_name(
+        args.secret_source, "RAPID7_API_KEY", "rapid7-api-key"
+    )
+    automox_api_key_secret = args.automox_api_key_secret or default_secret_name(
+        args.secret_source, "AUTOMOX_API_KEY", "automox-api-key"
+    )
+    automox_org_id_secret = args.automox_org_id_secret or default_secret_name(
+        args.secret_source, "AUTOMOX_ORG_ID", "automox-org-id"
+    )
 
     rapid7 = Rapid7Client(
-        api_key=required_env("RAPID7_API_KEY"),
+        api_key=secrets.get_required(rapid7_api_key_secret),
         region=args.region,
         page_size=args.page_size,
     )
@@ -100,8 +150,10 @@ def main() -> None:
         if not findings:
             raise SystemExit("CSV has no findings; refusing to upload an empty report")
         automox = AutomoxClient(
-            api_key=required_env("AUTOMOX_API_KEY"),
-            organization_id=int(required_env("AUTOMOX_ORG_ID")),
+            api_key=secrets.get_required(automox_api_key_secret),
+            organization_id=required_positive_int(
+                secrets.get_required(automox_org_id_secret), "Automox organization ID"
+            ),
         )
         result = automox.upload_rapid7_csv(args.output)
         LOG.info(
