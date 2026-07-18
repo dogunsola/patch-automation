@@ -84,7 +84,7 @@ class TransformTests(unittest.TestCase):
         self.assertEqual(
             rows,
             [
-                ["Software", "Hosts", "CVEs", "Severity"],
+                ["Software", "Host", "CVEs", "Severity"],
                 ["Example Service", "10.0.0.2", "CVE-2025-1234", "critical"],
             ],
         )

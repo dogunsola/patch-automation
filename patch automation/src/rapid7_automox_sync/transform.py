@@ -25,8 +25,9 @@ def build_catalog(
         if not vulnerability_id or not severity:
             continue
         cves = tuple(sorted(set(CVE_PATTERN.findall(str(vulnerability.get("cves", ""))))))
-        software = str(vulnerability.get("name") or vulnerability.get("title") or "Unknown Service")
-        software = software.strip() or "Unknown Service"
+        software = _normalize_software_name(
+            str(vulnerability.get("name") or vulnerability.get("title") or "Unknown Service")
+        )
         catalog[vulnerability_id] = (
             tuple(cve.upper() for cve in cves),
             severity,
@@ -106,7 +107,7 @@ def write_automox_csv(path: Path, findings: Iterable[AutomoxFinding]) -> None:
     try:
         with os.fdopen(fd, "w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
-            writer.writerow(("Software", "Hosts", "CVEs", "Severity"))
+            writer.writerow(("Software", "Host", "CVEs", "Severity"))
             writer.writerows(
                 (
                     _clean_cell(item.software),
@@ -129,6 +130,23 @@ def _clean_cell(value: str) -> str:
     cleaned = value.replace("\x00", "").strip()
     if cleaned.startswith(CSV_FORMULA_PREFIXES):
         return f"'{cleaned}"
+    return cleaned
+
+
+def _normalize_software_name(value: str) -> str:
+    cleaned = re.sub(r"\s+", " ", value).strip()
+    if not cleaned:
+        return "Unknown Service"
+
+    for marker in (" - ", " – ", ":", " for ", " on ", " with ", " related to "):
+        if marker in cleaned.lower():
+            cleaned = cleaned.split(marker, 1)[0].strip()
+            break
+
+    cleaned = re.sub(r"\s*\(.*\)\s*$", "", cleaned)
+    cleaned = re.sub(r"\s*(?:cve-\d{4}-\d{4,}|security update|patch|advisory|vulnerability).*$", "", cleaned, flags=re.IGNORECASE).strip()
+    if not cleaned:
+        return "Unknown Service"
     return cleaned
 
 

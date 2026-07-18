@@ -37,7 +37,7 @@ class ClientTests(unittest.TestCase):
             {
                 "asset": (
                     "vulnerability.severity IN ['Critical', 'Severe'] AND "
-                    "category.name NOT IN ['Microsoft']"
+                    "vulnerability.categories NOT IN ['microsoft patch']"
                 ),
                 "vulnerability": "severity IN ['Critical', 'Severe']",
             },

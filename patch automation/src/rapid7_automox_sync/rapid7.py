@@ -8,7 +8,7 @@ LOG = logging.getLogger(__name__)
 
 VALID_REGIONS = {"us", "us2", "us3", "eu", "ca", "au", "ap", "aps2", "me1"}
 SEVERITY_FILTER = "severity IN ['Critical', 'Severe']"
-MICROSOFT_CATEGORY_FILTER = "category.name NOT IN ['Microsoft']"
+MICROSOFT_CATEGORY_FILTER = "vulnerability.categories NOT IN ['microsoft patch']"
 ASSET_FILTER = (
     "vulnerability.severity IN ['Critical', 'Severe'] AND "
     f"{MICROSOFT_CATEGORY_FILTER}"
