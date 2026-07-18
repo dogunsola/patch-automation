@@ -35,7 +35,10 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(
             first_body,
             {
-                "asset": "vulnerability.severity IN ['Critical', 'Severe']",
+                "asset": (
+                    "vulnerability.severity IN ['Critical', 'Severe'] AND "
+                    "category.name NOT IN ['Microsoft']"
+                ),
                 "vulnerability": "severity IN ['Critical', 'Severe']",
             },
         )
