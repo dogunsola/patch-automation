@@ -20,23 +20,25 @@ class TransformTests(unittest.TestCase):
                     "id": "vuln-1",
                     "severity": "Critical",
                     "cves": "CVE-2025-1234, cve-2025-56789",
+                    "name": "Example Service",
                 },
-                {"id": "vuln-2", "severity": "Severe", "cves": "CVE-2024-9999"},
+                {"id": "vuln-2", "severity": "Severe", "cves": "CVE-2024-9999", "name": "Example Service"},
                 {"id": "moderate", "severity": "Moderate", "cves": "CVE-2020-0001"},
             ]
         )
         self.assertEqual(
             catalog,
             {
-                "vuln-1": (("CVE-2025-1234", "CVE-2025-56789"), "critical"),
-                "vuln-2": (("CVE-2024-9999",), "high"),
+                "vuln-1": (("CVE-2025-1234", "CVE-2025-56789"), "critical", "Example Service"),
+                "vuln-2": (("CVE-2024-9999",), "high", "Example Service"),
             },
         )
 
     def test_transform_uses_active_findings_and_deduplicates(self) -> None:
         catalog = {
-            "vuln-1": (("CVE-2025-1234",), "critical"),
-            "no-cve": ((), "high"),
+            "vuln-1": (("CVE-2025-1234",), "critical", "Example Service"),
+            "no-cve": ((), "high", "Example Service"),
+            "microsoft": (("CVE-2025-9999",), "critical", "Microsoft Windows Server"),
         }
         assets = [
             {
@@ -54,7 +56,14 @@ class TransformTests(unittest.TestCase):
         findings, stats = transform_assets(assets, catalog)
         self.assertEqual(
             findings,
-            [AutomoxFinding("host.example.com", "CVE-2025-1234", "critical")],
+            [
+                AutomoxFinding(
+                    software="Example Service",
+                    hosts=("host.example.com",),
+                    cves=("CVE-2025-1234",),
+                    severity="critical",
+                )
+            ],
         )
         self.assertEqual(stats.assets_seen, 2)
         self.assertEqual(stats.findings_without_cve, 1)
@@ -64,7 +73,7 @@ class TransformTests(unittest.TestCase):
     def test_ip_fallback_and_csv_format(self) -> None:
         findings, _ = transform_assets(
             [{"ip": "10.0.0.2", "new": [{"vulnerability_id": "vuln-1"}]}],
-            {"vuln-1": (("CVE-2025-1234",), "critical")},
+            {"vuln-1": (("CVE-2025-1234",), "critical", "Example Service")},
             hostname_fallback="ip",
         )
         with tempfile.TemporaryDirectory() as directory:
@@ -74,18 +83,28 @@ class TransformTests(unittest.TestCase):
                 rows = list(csv.reader(file))
         self.assertEqual(
             rows,
-            [["Host", "CVE", "Severity"], ["10.0.0.2", "CVE-2025-1234", "critical"]],
+            [
+                ["Software", "Hosts", "CVEs", "Severity"],
+                ["Example Service", "10.0.0.2", "CVE-2025-1234", "critical"],
+            ],
         )
 
     def test_csv_formula_cells_are_escaped_and_file_is_private(self) -> None:
-        findings = [AutomoxFinding("=cmd|calc", "CVE-2025-1234", "critical")]
+        findings = [
+            AutomoxFinding(
+                software="=cmd|calc",
+                hosts=("host.example.com",),
+                cves=("CVE-2025-1234",),
+                severity="critical",
+            )
+        ]
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "findings.csv"
             write_automox_csv(output, findings)
             with output.open(newline="", encoding="utf-8") as file:
                 rows = list(csv.reader(file))
             mode = stat.S_IMODE(output.stat().st_mode)
-        self.assertEqual(rows[1], ["'=cmd|calc", "CVE-2025-1234", "critical"])
+        self.assertEqual(rows[1], ["'=cmd|calc", "host.example.com", "CVE-2025-1234", "critical"])
         self.assertEqual(mode, 0o600)
 
 

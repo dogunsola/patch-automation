@@ -3,8 +3,9 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, order=True)
 class AutomoxFinding:
-    host: str
-    cve: str
+    software: str
+    hosts: tuple[str, ...]
+    cves: tuple[str, ...]
     severity: str
 
 
