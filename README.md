@@ -136,13 +136,14 @@ Useful options:
 The output format is:
 
 ```csv
-Host,CVE,Severity
-server01.example.com,CVE-2026-1234,critical
-server02.example.com,CVE-2026-5678,high
+Software,Hosts,CVEs,Severity
+Apache Tomcat,server01.example.com;server02.example.com,CVE-2026-1234;CVE-2026-5678,high
 ```
 
-Rapid7 `Severe` is mapped to Automox `high`. Findings without a CVE or a usable
-hostname are skipped and reported in the run summary.
+Findings are grouped by software or service name, with the associated hosts and
+CVEs listed together in each row. Rapid7 `Severe` is mapped to Automox `high`.
+Findings without a CVE or a usable hostname are skipped and reported in the run
+summary. Microsoft-related patches are excluded from the generated CSV.
 
 ## Scheduling
 
