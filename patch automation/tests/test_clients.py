@@ -37,7 +37,8 @@ class ClientTests(unittest.TestCase):
             asset_filter,
             "vulnerability.severity IN ['Critical', 'Severe'] AND "
             "vulnerability.categories NOT IN ['microsoft patch'] AND "
-            "asset.lastScanTime > /NOW - P7D/",
+            "asset.lastScanTime > /NOW - P7D/ AND "
+            "asset.groups IN ['workstations/laptops']",
         )
         self.assertEqual(
             first_body["vulnerability"], "severity IN ['Critical', 'Severe']"

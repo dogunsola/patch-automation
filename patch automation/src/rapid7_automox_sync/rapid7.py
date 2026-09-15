@@ -10,6 +10,7 @@ VALID_REGIONS = {"us", "us2", "us3", "eu", "ca", "au", "ap", "aps2", "me1"}
 SEVERITY_FILTER = "severity IN ['Critical', 'Severe']"
 MICROSOFT_CATEGORY_FILTER = "vulnerability.categories NOT IN ['microsoft patch']"
 SCAN_RECENCY_FILTER = "asset.lastScanTime > /NOW - P7D/"
+ASSET_GROUP_FILTER = "asset.groups IN ['workstations/laptops']"
 
 
 class Rapid7Client:
@@ -45,7 +46,8 @@ class Rapid7Client:
     def iter_affected_assets(self) -> Iterator[dict[str, Any]]:
         asset_filter = (
             "vulnerability.severity IN ['Critical', 'Severe'] AND "
-            f"{MICROSOFT_CATEGORY_FILTER} AND {SCAN_RECENCY_FILTER}"
+            f"{MICROSOFT_CATEGORY_FILTER} AND {SCAN_RECENCY_FILTER} AND "
+            f"{ASSET_GROUP_FILTER}"
         )
         yield from self._post_pages(
             "/assets",
