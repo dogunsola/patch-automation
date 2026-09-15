@@ -32,15 +32,15 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(first_params["includeSame"], "true")
         self.assertNotIn("cursor", first_params)
         self.assertEqual(second_params["cursor"], "next-cursor")
+        asset_filter = first_body["asset"]
         self.assertEqual(
-            first_body,
-            {
-                "asset": (
-                    "vulnerability.severity IN ['Critical', 'Severe'] AND "
-                    "vulnerability.categories NOT IN ['microsoft patch']"
-                ),
-                "vulnerability": "severity IN ['Critical', 'Severe']",
-            },
+            asset_filter,
+            "vulnerability.severity IN ['Critical', 'Severe'] AND "
+            "vulnerability.categories NOT IN ['microsoft patch'] AND "
+            "asset.lastScanTime > /NOW - P7D/",
+        )
+        self.assertEqual(
+            first_body["vulnerability"], "severity IN ['Critical', 'Severe']"
         )
 
     def test_automox_upload_uses_rapid7_format(self) -> None:

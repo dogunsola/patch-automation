@@ -9,10 +9,7 @@ LOG = logging.getLogger(__name__)
 VALID_REGIONS = {"us", "us2", "us3", "eu", "ca", "au", "ap", "aps2", "me1"}
 SEVERITY_FILTER = "severity IN ['Critical', 'Severe']"
 MICROSOFT_CATEGORY_FILTER = "vulnerability.categories NOT IN ['microsoft patch']"
-ASSET_FILTER = (
-    "vulnerability.severity IN ['Critical', 'Severe'] AND "
-    f"{MICROSOFT_CATEGORY_FILTER}"
-)
+SCAN_RECENCY_FILTER = "asset.lastScanTime > /NOW - P7D/"
 
 
 class Rapid7Client:
@@ -46,9 +43,13 @@ class Rapid7Client:
         )
 
     def iter_affected_assets(self) -> Iterator[dict[str, Any]]:
+        asset_filter = (
+            "vulnerability.severity IN ['Critical', 'Severe'] AND "
+            f"{MICROSOFT_CATEGORY_FILTER} AND {SCAN_RECENCY_FILTER}"
+        )
         yield from self._post_pages(
             "/assets",
-            {"asset": ASSET_FILTER, "vulnerability": SEVERITY_FILTER},
+            {"asset": asset_filter, "vulnerability": SEVERITY_FILTER},
             extra_params={"includeSame": "true"},
         )
 
